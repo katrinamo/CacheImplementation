@@ -300,11 +300,11 @@ input rnotw, strobe, clk;
 reg [7:0] pend;
 reg `WORD raddr;
 reg `WORD m `MEMSIZE;
-reg `WORD r `REGSIZE;
+//reg `WORD r `REGSIZE;
 
 initial begin
   pend <= 0;
-  $readmemh0(r);
+//  $readmemh0(r);
   $readmemh1(m);
 end
 
