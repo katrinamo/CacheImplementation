@@ -123,6 +123,12 @@ assign retstall = (s1op == `OPRet);
   else
     assign ir = ir1;
   assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
+  
+  data_cache(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr)
+  
+  data_cache datacache0(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit[0]);
+  data_cache datacache1(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit[1]);
+  
 // Instruction fetch
 always @(posedge clk) begin
   // set immed, accounting for pre
@@ -308,7 +314,12 @@ reg `CACHESIZE cache;
 intial begin
 
 endmodule
-
+  
+module data_cache(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit);
+  
+  
+  
+endmodule
 
 module slowmem(mfc, rdata, addr, wdata, rnotw, strobe, clk);
 output reg mfc;
