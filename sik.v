@@ -115,8 +115,8 @@ assign retstall = (s1op == `OPRet);
 //assign ir = m[`PC0];
 
   
-  instr_cache instructioncache(clk, reset, `PCO, ir, hit[0], rdata, rnotw, mfc);
-  instr_cache instructioncache(clk, reset, `PC1, ir, hit[1], rdata, rnotw, mfc);
+  instr_cache instructioncache0(clk, reset, `PCO, ir, hit[0], rdata, rnotw, mfc);
+  instr_cache instructioncache1(clk, reset, `PC1, ir, hit[1], rdata, rnotw, mfc);
   assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
 // Instruction fetch
 always @(posedge clk) begin
