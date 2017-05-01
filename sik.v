@@ -113,10 +113,11 @@ assign retstall = (s1op == `OPRet);
 
 // Instruction fetch interface
 //assign ir = m[`PC0];
-//assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
+
   
   instr_cache instructioncache(clk, reset, `PCO, ir, hit[0], rdata, rnotw, mfc);
   instr_cache instructioncache(clk, reset, `PC1, ir, hit[1], rdata, rnotw, mfc);
+  assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
 // Instruction fetch
 always @(posedge clk) begin
   // set immed, accounting for pre
@@ -272,7 +273,7 @@ end
 endmodule
 
 
-                               module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, rnotw, mfc);
+module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, rnotw, mfc);
 input wire clk;
 input wire reset;
 
@@ -282,6 +283,10 @@ output wire `WORD instruction;
 
 //If in cache hit=1
 output wire hit;
+  if(hit == 0 && !mfc)
+    instruction = `OPNOP;
+  else
+    instruction = rdata;
 
 //If miss, find instr using memoryIn
 input wire `WORD memoryIn;
