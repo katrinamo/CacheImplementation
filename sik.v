@@ -83,7 +83,8 @@ reg `REGNUM sp `PID;
 reg `REGNUM s0d, s1d, s2d, s0s, s1s;
 reg `WORD s0immed, s1immed, s2immed;
 reg `WORD s1sv, s1dv, s2sv, s2dv;
-wire `WORD ir0, ir1;
+wire `WORD ir;
+reg `WORD ir0, ir1;
 reg `WORD immed;
 wire teststall, retstall, writestall;
 reg `PID torf, preset, halts;
@@ -117,6 +118,10 @@ assign retstall = (s1op == `OPRet);
   
   instr_cache instructioncache0(clk, reset, `PCO, ir0, hit[0], rdata, rnotw, mfc);
   instr_cache instructioncache1(clk, reset, `PC1, ir1, hit[1], rdata, rnotw, mfc);
+  if(`PID == 0)
+    assign ir = ir0;
+  else
+    assign ir = ir1;
   assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
 // Instruction fetch
 always @(posedge clk) begin
