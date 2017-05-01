@@ -71,7 +71,11 @@ output halt;
 input reset, clk;
 
 reg `WORD r `REGSIZE;
-reg `WORD m `MEMSIZE;
+//reg `WORD m `MEMSIZE;
+  reg mfc;
+  reg `WORD rdata, addr, wdata;
+  reg rnotw, strobe;
+  slowmem m(mfc, rdata, addr, wdata, rnotw, strobe, clk);
 reg `WORD pc `PID;
 wire `OP op;
 reg `OP s0op, s1op, s2op;
@@ -85,6 +89,8 @@ wire teststall, retstall, writestall;
 reg `PID torf, preset, halts;
 reg `PRE pre `PID;
 reg pid;
+  reg `PID hit;
+  
 
 always @(posedge reset) begin
   //halt <= 0;
@@ -108,7 +114,9 @@ assign retstall = (s1op == `OPRet);
 // Instruction fetch interface
 //assign ir = m[`PC0];
 //assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
-
+  
+  instr_cache instructioncache(clk, reset, `PCO, ir, hit[0], rdata, rnotw, mfc);
+  instr_cache instructioncache(clk, reset, `PC1, ir, hit[1], rdata, rnotw, mfc);
 // Instruction fetch
 always @(posedge clk) begin
   // set immed, accounting for pre
@@ -264,7 +272,7 @@ end
 endmodule
 
 
-module instr_cache(clk, reset, instrAddr, instruction, hit, memoryIn, readData, mfc);
+                               module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, rnotw, mfc);
 input wire clk;
 input wire reset;
 
