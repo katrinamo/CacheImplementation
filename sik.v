@@ -116,8 +116,8 @@ assign retstall = (s1op == `OPRet);
 //assign ir = m[`PC0];
 
   
-  instr_cache instructioncache0(clk, reset, `PCO, ir0, hit[0], rdata, rnotw, mfc);
-  instr_cache instructioncache1(clk, reset, `PC1, ir1, hit[1], rdata, rnotw, mfc);
+  instr_cache instructioncache0(clk, reset, `PCO, ir0, hit[0], rdata, rnotw, mfc, strobe);
+  instr_cache instructioncache1(clk, reset, `PC1, ir1, hit[1], rdata, rnotw, mfc, strobe);
   if(`PID == 0)
     assign ir = ir0;
   else
@@ -278,7 +278,7 @@ end
 endmodule
 
 
-module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, rnotw, mfc);
+module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, rnotw, mfc, strobe);
 input wire clk;
 input wire reset;
 
@@ -294,10 +294,10 @@ output wire hit;
     instruction = rdata;
 
 //If miss, find instr using memoryIn
-input wire `WORD memoryIn;
+input wire `WORD rdata;
 
-//Output read Data = 1 to slow mem if need read along w/strobe
-output reg readData;
+//Output read rnotw = 1 to slow mem if need read along w/strobe
+output reg rnotw;
 output reg strobe;
 
 //Wait for mfc to signal complete fetch
