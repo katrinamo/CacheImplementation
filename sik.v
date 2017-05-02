@@ -72,10 +72,10 @@ input reset, clk;
 
 reg `WORD r `REGSIZE;
 //reg `WORD m `MEMSIZE;
-  reg mfc;
-  reg `WORD rdata, addr, wdata;
-  reg rnotw, strobe;
-  slowmem m(mfc, rdata, addr, wdata, rnotw, strobe, clk);
+wire mfc;
+wire `WORD rdata, wdata;
+reg `WORD addr; 
+wire rnotw, strobe;
 reg `WORD pc `PID;
 wire `OP op;
 reg `OP s0op, s1op, s2op;
@@ -83,14 +83,16 @@ reg `REGNUM sp `PID;
 reg `REGNUM s0d, s1d, s2d, s0s, s1s;
 reg `WORD s0immed, s1immed, s2immed;
 reg `WORD s1sv, s1dv, s2sv, s2dv;
-wire `WORD ir;
-reg `WORD ir0, ir1;
+reg `WORD ir;
+wire `WORD ir0, ir1;
 reg `WORD immed;
 wire teststall, retstall, writestall;
 reg `PID torf, preset, halts;
 reg `PRE pre `PID;
 reg pid;
-  reg `PID hit;
+wire `PID hit;
+
+
   
 
 always @(posedge reset) begin
@@ -104,7 +106,7 @@ always @(posedge reset) begin
 end
 
 // Halted?
-assign halt = (HALT0 && HALT1);
+assign halt = (`HALT0 && `HALT1);
 
 // Stall for Test?
 assign teststall = (s1op == `OPTest);
@@ -115,16 +117,24 @@ assign retstall = (s1op == `OPRet);
 // Instruction fetch interface
 //assign ir = m[`PC0];
 
-  
-  instr_cache instructioncache0(clk, reset, `PCO, ir0, hit[0], rdata, rnotw, mfc, strobe);
-  instr_cache instructioncache1(clk, reset, `PC1, ir1, hit[1], rdata, rnotw, mfc, strobe);
-  if(`PID == 0)
-    assign ir = ir0;
-  else
-    assign ir = ir1;
+  slowmem m(mfc, rdata, addr, wdata, rnotw, strobe, clk);
+
+  always @(posedge clk) 
+  begin
+     if (`PID0) begin 
+       ir = ir0; 
+     end
+     else begin
+       ir = ir1; 
+     end
+  end
+
+
+  instr_cache instructioncache0(clk, reset, `PC0, ir0, hit[0], rdata, addr, rnotw, mfc, strobe);
+  instr_cache instructioncache1(clk, reset, `PC1, ir1, hit[1], rdata, addr, rnotw, mfc, strobe);
+
+
   assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
-  
-  data_cache(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr)
   
   data_cache datacache0(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit[0]);
   data_cache datacache1(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit[1]);
@@ -273,8 +283,8 @@ always @(posedge clk) begin
     `OPAnd: begin r[{`PID1, s2d}] <= s2dv & s2sv; end
     `OPOr: begin r[{`PID1, s2d}] <= s2dv | s2sv; end
     `OPXor: begin r[{`PID1, s2d}] <= s2dv ^ s2sv; end
-    `OPLoad: begin r[{`PID1, s2d}] <= m[s2sv]; end
-    `OPStore: begin m[s2dv] <= s2sv; end
+    `OPLoad: begin r[{`PID1, s2d}] <= wdata; end
+    `OPStore: begin addr = s2sv; end
     `OPPush,
     `OPCall: begin r[{`PID1, s2d}] <= s2immed; end
     `OPGet,
@@ -284,20 +294,20 @@ end
 endmodule
 
 
-module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, rnotw, mfc, strobe);
+module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, addr, rnotw, mfc, strobe);
 input wire clk;
 input wire reset;
 
 //Input instruction address >> output instruction (DECODED)
 input wire `WORD instrAddr;
-output wire `WORD instruction;
+output reg `WORD instruction;
+
+//address to send to main mem if needed
+output reg `WORD addr;
 
 //If in cache hit=1
-output wire hit;
-  if(hit == 0 && !mfc)
-    instruction = `OPNOP;
-  else
-    instruction = rdata;
+output hit;
+
 
 //If miss, find instr using memoryIn
 input wire `WORD rdata;
@@ -309,14 +319,41 @@ output reg strobe;
 //Wait for mfc to signal complete fetch
 input wire mfc;
 
-reg `CACHESIZE cache;
+reg `WORD cachedata `CACHESIZE;
 
-intial begin
+reg `WORD toAddtoCache;
+
+
+always @(posedge clk) begin
+  if(hit == 0 && !mfc) begin
+    instruction <= `OPNOP;
+  end else begin
+      if(hit) begin
+         instruction <= cachedata[rdata];
+      end
+      else begin
+         hit <= 0;
+         rnotw = 1;
+         strobe = 1;
+         addr = instrAddr;         
+      end
+     
+  end
+end
+
 
 endmodule
   
 module data_cache(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit);
-  
+input wire mfc;
+input wire `WORD rdata;
+input wire `WORD addr;
+input wire clk, reset;
+output reg `WORD wdata;
+output reg rnotw, strobe;
+output wire hit;
+
+
   
   
 endmodule
@@ -334,7 +371,7 @@ reg `WORD m `MEMSIZE;
 initial begin
   pend <= 0;
 //  $readmemh0(r);
-  $readmemh1(m);
+  $readmemh0(m);
 end
 
 always @(posedge clk) begin
