@@ -297,18 +297,13 @@ endmodule
 module instr_cache(clk, reset, instrAddr, instruction, hit, rdata, addr, rnotw, mfc, strobe);
 input wire clk;
 input wire reset;
-
 //Input instruction address >> output instruction (DECODED)
 input wire `WORD instrAddr;
 output reg `WORD instruction;
-
 //address to send to main mem if needed
 output reg `WORD addr;
-
 //If in cache hit=1
 output hit;
-
-
 //If miss, find instr using memoryIn
 input wire `WORD rdata;
 
@@ -320,16 +315,28 @@ output reg strobe;
 input wire mfc;
 
 reg `WORD cachedata `CACHESIZE;
-
-reg `WORD toAddtoCache;
-
+reg `WORD cacheaddr `CACHESIZE;
+  
+  always @(posedge clk) begin
+    if(rnotw && strobe)
+      begin
+        if(instrAddr == cacheaddr[instrAddr%`CACHESIZE] begin //basic hash if based on address
+           instruction <= cachedata[instrAddr%`CACHESIZE];
+           hit = 1;
+        end
+        else
+          hit = 0;
+      end
+  end
 
 always @(posedge clk) begin
   if(hit == 0 && !mfc) begin
     instruction <= `OPNOP;
   end else begin
-      if(hit) begin
-         instruction <= cachedata[rdata];
+    if(mfc) begin
+        cachedata[instrAddr%`CACHESIZE] = rdata;
+        cacheaddr[instrAddr%`CACHESIZE] = instrAddr;
+        instruction <= rdata;
       end
       else begin
          hit <= 0;
@@ -352,6 +359,41 @@ input wire clk, reset;
 output reg `WORD wdata;
 output reg rnotw, strobe;
 output wire hit;
+reg `WORD cachedata `CACHESIZE;
+reg `WORD cacheaddr `CACHESIZE;
+  
+always @(posedge clk) begin
+    if(rnotw && strobe)
+      begin
+        if(addr == cacheaddr[addr%`CACHESIZE] begin //basic hash if based on address
+           wdata <= cachedata[addr%`CACHESIZE];
+           hit = 1;
+        end
+        else
+          addr
+          hit = 0;
+      end
+  end
+
+always @(posedge clk) begin
+  if(hit == 0 && !mfc) begin
+  end else begin
+    if(mfc) begin
+      cachedata[addr%`CACHESIZE] = rdata;
+      cacheaddr[addr%`CACHESIZE] = addr;
+        instruction <= rdata;
+      end
+      else begin
+         hit <= 0;
+         rnotw = 1;
+         strobe = 1;
+         addr = addr;         
+      end
+     
+  end
+end
+  
+  
 
 
   
