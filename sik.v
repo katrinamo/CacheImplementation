@@ -147,7 +147,7 @@ assign retstall = (s1op == `OPRet);
   //addr is now an output that connects to slow mem, more consistent with instr_cache
   //addrToRW is the address we have been fed to read/write
   data_cache datacache0(clk, reset, strobe, rnotw, mfc, wdata, rdata, addrToRW, addr, hit[0]);
- // data_cache datacache1(clk, reset, strobe, rnotw, mfc, wdata, rdata, addrToRW, addr, hit[1]);
+  data_cache datacache1(clk, reset, strobe, rnotw, mfc, wdata, rdata, addrToRW, addr, hit[1]);
   
 // Instruction fetch
 always @(posedge clk) begin
