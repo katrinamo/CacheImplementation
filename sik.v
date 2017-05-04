@@ -328,14 +328,23 @@ input wire mfc;
 
 reg `WORD cachedata `CACHESIZE;
 reg `WORD cacheaddr `CACHESIZE;
+  
+reg `WORD LastInstrAddr;
 
 always @(posedge clk) begin
-  if(rnotw && strobe) begin
+  if(rnotw) begin
     if(instrAddr == cacheaddr[instrAddr% `TAG]) begin //basic hash if based on addres 
       instruction <= cachedata[instrAddr%`TAG];
       hit = 1;
+      LastInstrAddr = instrAddr;
+      rnotw = 1;
+      strobe = 1;
+      addr = LastInstrAddr + 1;
+      
+      // Need to read data from memory
     end else begin
       hit = 0;
+      strobe = 1;
     end
   end
 end
@@ -352,6 +361,7 @@ always @(posedge clk) begin
     end
     
     //prefetch
+    /*
     else begin
       hit <= 0;
       rnotw = 1;
@@ -359,6 +369,7 @@ always @(posedge clk) begin
       addr = instrAddr;
                
     end
+    */
   end
 end
 endmodule
