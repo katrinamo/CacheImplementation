@@ -328,7 +328,7 @@ input wire mfc;
 
 reg `WORD cachedata `CACHESIZE;
 reg `WORD cacheaddr `CACHESIZE;
-  
+
 always @(posedge clk) begin
   if(rnotw && strobe) begin
     if(instrAddr == cacheaddr[instrAddr% `TAG]) begin //basic hash if based on addres 
@@ -350,11 +350,14 @@ always @(posedge clk) begin
       cacheaddr[instrAddr % `TAG] = instrAddr;
       instruction <= rdata;
     end
+    
+    //prefetch
     else begin
       hit <= 0;
       rnotw = 1;
       strobe = 1;
-      addr = instrAddr;         
+      addr = instrAddr;
+               
     end
   end
 end
@@ -396,7 +399,7 @@ always @(posedge clk) begin
   end else begin
     if(mfc) begin
       cachedata[addrToRW%`TAG] = rdata;
-      //cacheaddr[addrToRW%`TAG] = addrToRW;
+      cacheaddr[addrToRW%`TAG] = addrToRW; 
       addr <= rdata;
     end
     else begin
