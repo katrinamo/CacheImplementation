@@ -16,6 +16,8 @@
 
 //cache stuff
 `define CACHESIZE [7:0]
+`define TAG 8
+`define INDEX [7:0]
 
 // pid-dependent things
 `define PID0  (pid)
@@ -74,7 +76,7 @@ reg `WORD r `REGSIZE;
 //reg `WORD m `MEMSIZE;
 wire mfc;
 wire `WORD rdata, wdata;
-reg `WORD addr; 
+wire `WORD addr; 
 wire rnotw, strobe;
 reg `WORD pc `PID;
 wire `OP op;
@@ -90,6 +92,8 @@ wire teststall, retstall, writestall;
 reg `PID torf, preset, halts;
 reg `PRE pre `PID;
 reg pid;
+reg `WORD memaddr;
+reg `WORD addrToRW;
 wire `PID hit;
 
 
@@ -117,7 +121,7 @@ assign retstall = (s1op == `OPRet);
 // Instruction fetch interface
 //assign ir = m[`PC0];
 
-  slowmem m(mfc, rdata, addr, wdata, rnotw, strobe, clk);
+  slowmem m(mfc, rdata, memaddr, wdata, rnotw, strobe, clk);
 
   always @(posedge clk) 
   begin
@@ -127,17 +131,23 @@ assign retstall = (s1op == `OPRet);
      else begin
        ir = ir1; 
      end
+
+     //address to read/write is output from the caches and assigned to memaddr for input
+     memaddr = addr;
   end
 
 
   instr_cache instructioncache0(clk, reset, `PC0, ir0, hit[0], rdata, addr, rnotw, mfc, strobe);
   instr_cache instructioncache1(clk, reset, `PC1, ir1, hit[1], rdata, addr, rnotw, mfc, strobe);
+ 
 
 
   assign op = {(ir `Opcode), (((ir `Opcode) == 0) ? ir[3:0] : 4'd0)};
   
-  data_cache datacache0(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit[0]);
-  data_cache datacache1(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit[1]);
+  //addr is now an output that connects to slow mem, more consistent with instr_cache
+  //addrToRW is the address we have been fed to read/write
+  data_cache datacache0(clk, reset, strobe, rnotw, mfc, wdata, rdata, addrToRW, addr, hit[0]);
+ // data_cache datacache1(clk, reset, strobe, rnotw, mfc, wdata, rdata, addrToRW, addr, hit[1]);
   
 // Instruction fetch
 always @(posedge clk) begin
@@ -284,7 +294,9 @@ always @(posedge clk) begin
     `OPOr: begin r[{`PID1, s2d}] <= s2dv | s2sv; end
     `OPXor: begin r[{`PID1, s2d}] <= s2dv ^ s2sv; end
     `OPLoad: begin r[{`PID1, s2d}] <= wdata; end
-    `OPStore: begin addr = s2sv; end
+
+    //address to read or write is set to the address value
+    `OPStore: begin addrToRW = s2sv; end
     `OPPush,
     `OPCall: begin r[{`PID1, s2d}] <= s2immed; end
     `OPGet,
@@ -303,7 +315,7 @@ output reg `WORD instruction;
 //address to send to main mem if needed
 output reg `WORD addr;
 //If in cache hit=1
-output hit;
+output reg hit;
 //If miss, find instr using memoryIn
 input wire `WORD rdata;
 
@@ -317,87 +329,85 @@ input wire mfc;
 reg `WORD cachedata `CACHESIZE;
 reg `WORD cacheaddr `CACHESIZE;
   
-  always @(posedge clk) begin
-    if(rnotw && strobe)
-      begin
-        if(instrAddr == cacheaddr[instrAddr%`CACHESIZE] begin //basic hash if based on address
-           instruction <= cachedata[instrAddr%`CACHESIZE];
-           hit = 1;
-        end
-        else
-          hit = 0;
-      end
-  end
-
 always @(posedge clk) begin
-  if(hit == 0 && !mfc) begin
-    instruction <= `OPNOP;
-  end else begin
-    if(mfc) begin
-        cachedata[instrAddr%`CACHESIZE] = rdata;
-        cacheaddr[instrAddr%`CACHESIZE] = instrAddr;
-        instruction <= rdata;
-      end
-      else begin
-         hit <= 0;
-         rnotw = 1;
-         strobe = 1;
-         addr = instrAddr;         
-      end
-     
+  if(rnotw && strobe) begin
+    if(instrAddr == cacheaddr[instrAddr% `TAG]) begin //basic hash if based on addres 
+      instruction <= cachedata[instrAddr%`TAG];
+      hit = 1;
+    end else begin
+      hit = 0;
+    end
   end
 end
 
-
+always @(posedge clk) begin
+  if(hit == 0 && !mfc) begin
+      instruction <= `OPNOP;
+  end 
+  else begin
+    if(mfc) begin
+      cachedata[instrAddr % `TAG] = rdata;
+      cacheaddr[instrAddr % `TAG] = instrAddr;
+      instruction <= rdata;
+    end
+    else begin
+      hit <= 0;
+      rnotw = 1;
+      strobe = 1;
+      addr = instrAddr;         
+    end
+  end
+end
 endmodule
   
-module data_cache(clk, reset, strobe, rnotw, mfc, wdata, rdata, addr, hit);
+module data_cache(clk, reset, strobe, rnotw, mfc, wdata, rdata, addrToRW, addr, hit);
 input wire mfc;
+//data to read
 input wire `WORD rdata;
-input wire `WORD addr;
+// data to grab from mem
+output reg `WORD addr;
+
 input wire clk, reset;
+
+//data to write
 output reg `WORD wdata;
 output reg rnotw, strobe;
-output wire hit;
+output reg hit;
 reg `WORD cachedata `CACHESIZE;
 reg `WORD cacheaddr `CACHESIZE;
-  
+
+input wire `WORD addrToRW;
+
 always @(posedge clk) begin
-    if(rnotw && strobe)
-      begin
-        if(addr == cacheaddr[addr%`CACHESIZE] begin //basic hash if based on address
-           wdata <= cachedata[addr%`CACHESIZE];
-           hit = 1;
-        end
-        else
-          addr
-          hit = 0;
-      end
+  if(rnotw && strobe)
+  begin
+    if(addrToRW == cacheaddr[addrToRW%`TAG]) begin //basic hash if based on address
+      wdata <= cachedata[addrToRW%`TAG];
+      hit = 1;
+    end
+    else begin
+      hit = 0;
+    end
   end
+end
 
 always @(posedge clk) begin
   if(hit == 0 && !mfc) begin
   end else begin
     if(mfc) begin
-      cachedata[addr%`CACHESIZE] = rdata;
-      cacheaddr[addr%`CACHESIZE] = addr;
-        instruction <= rdata;
-      end
-      else begin
-         hit <= 0;
-         rnotw = 1;
-         strobe = 1;
-         addr = addr;         
-      end
-     
+      cachedata[addrToRW%`TAG] = rdata;
+      //cacheaddr[addrToRW%`TAG] = addrToRW;
+      addr <= rdata;
+    end
+    else begin
+      hit <= 0;
+      rnotw = 1;
+      strobe = 1;
+      addr = addr;         
+    end
   end
 end
-  
-  
 
-
-  
-  
 endmodule
 
 module slowmem(mfc, rdata, addr, wdata, rnotw, strobe, clk);
